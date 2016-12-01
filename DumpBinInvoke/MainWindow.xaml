@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DumpBinInvoke"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525"  Icon="setting_128px.png" MinWidth="500" MinHeight="400" Drop="Window_DragEnter"  AllowDrop="True" >
+        Title="DumpBin Invoker" Height="350" Width="525"  Icon="setting_128px.png" MinWidth="500" MinHeight="400" Drop="Window_DragEnter"  AllowDrop="True" >
     <Grid  >
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -25,11 +25,11 @@
 
         <Grid Grid.Row="1" Grid.ColumnSpan="10">
 
-            <TabControl Name="mTabControl" Margin="10" >
+            <TabControl Name="mTabControl" Margin="10" SelectionChanged="mTabControl_SelectionChanged" >
                 <TabItem Header="头信息">
                     <TextBox Name="mHeaderBox" TextWrapping="Wrap" Margin="-3,-2,-3,-3"  VerticalScrollBarVisibility="Visible" />
                 </TabItem>
-                <TabItem Header="反汇编">
+                <TabItem Name="mAsmItem" Header="反汇编">
                     <TextBox Name="mAsmHeader" TextWrapping="Wrap" Margin="-3,-2,-3,-3" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 </TabItem>
                 <TabItem Header="输出符号">
@@ -41,7 +41,7 @@
                 <TabItem Header="输入符号">
                     <TextBox Name="mImports" TextWrapping="Wrap" Margin="-3,-2,-3,-3" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 </TabItem>
-                <TabItem Header="原始数据">
+                <TabItem Name="mRawItem" Header="原始数据">
                     <TextBox Name="mRowData" TextWrapping="Wrap" Margin="-3,-2,-3,-3" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 </TabItem>
                 <TabItem Header="重定向">

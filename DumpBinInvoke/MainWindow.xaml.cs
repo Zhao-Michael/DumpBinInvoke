@@ -26,16 +26,20 @@ namespace DumpBinInvoke
             InitializeComponent();
         }
 
+        public static string mAsmContent = string.Empty;
+        public static string mRawContent = string.Empty;
+
         private void mbuttonExec_Click(object sender, RoutedEventArgs e)
         {
+
             if (mTextBoxPath.Text == string.Empty) return;
 
             GetOutput(mHeaderBox, mTextBoxPath.Text, " /HEADERS");
-            GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM");
+            GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM", true);
             GetOutput(mExports, mTextBoxPath.Text, " /EXPORTS");
             GetOutput(mDependents, mTextBoxPath.Text, " /DEPENDENTS");
             GetOutput(mImports, mTextBoxPath.Text, " /IMPORTS");
-            GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA");
+            GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA", true);
             GetOutput(mReLocations, mTextBoxPath.Text, " /RELOCATIONS");
 
         }
@@ -79,7 +83,8 @@ namespace DumpBinInvoke
             return childList;
         }
 
-        public static void GetOutput(TextBox textbox, string dllpath, string arg)
+
+        public void GetOutput(TextBox textbox, string dllpath, string arg, bool lenText = false)
         {
             textbox.Text = string.Empty;
 
@@ -95,13 +100,41 @@ namespace DumpBinInvoke
 
             string temp = string.Empty;
 
-            process.OutputDataReceived += (o, e) =>
+            if (lenText)
             {
-                temp = temp + e.Data + Environment.NewLine;
+                if (textbox == mAsmHeader)
+                {
+                    process.OutputDataReceived += (o, e) =>
+                    {
+                        temp = temp + e.Data + Environment.NewLine;
 
-                textbox.Dispatcher.BeginInvoke(new Action(() => textbox.Text = temp), null);
+                        textbox.Dispatcher.BeginInvoke(new Action(() => mAsmContent = temp), null);
 
-            };
+                    };
+                }
+                else if (textbox == mRowData)
+                {
+                    process.OutputDataReceived += (o, e) =>
+                    {
+                        temp = temp + e.Data + Environment.NewLine;
+
+                        textbox.Dispatcher.BeginInvoke(new Action(() => mRawContent = temp), null);
+
+                    };
+                }
+
+            }
+            else
+            {
+                process.OutputDataReceived += (o, e) =>
+                {
+                    temp = temp + e.Data + Environment.NewLine;
+
+                    textbox.Dispatcher.BeginInvoke(new Action(() => textbox.Text = temp), null);
+
+                };
+            }
+
             process.BeginOutputReadLine();
             process.Start();
 
@@ -111,23 +144,62 @@ namespace DumpBinInvoke
         public static string GetShortName(string sLongFileName)
         {
             var buffer = new StringBuilder(259);
-            int len = GetShortPathName(sLongFileName, buffer, buffer.Capacity);
+            int len = DllHandler.GetShortPathName(sLongFileName, buffer, buffer.Capacity);
             if (len == 0) throw new System.ComponentModel.Win32Exception();
             return buffer.ToString();
         }
 
-        [DllImport("kernel32", EntryPoint = "GetShortPathName", CharSet = CharSet.Auto, SetLastError = true)]
-        private static extern int GetShortPathName(string longPath, StringBuilder shortPath, int bufSize);
 
 
         private void Window_DragEnter(object sender, DragEventArgs e)
         {
-            mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
+            try
+            {
+                mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
+
+            }
+            catch (Exception ex)
+            {
+                mTextBoxPath.Text = "";
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void mTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (mTabControl.SelectedItem == mRawItem)
+            {
+                mRowData.Text = mRawContent;
+            }
+            else if (mTabControl.SelectedItem == mAsmItem)
+            {
+                mAsmHeader.Text = mAsmContent;
+            }
         }
 
 
     }
 
+    public class DllHandler
+    {
+
+        [DllImport("DecryptSymbolName.dll", EntryPoint = "DecryptSymbolName", SetLastError = true)]
+        public extern static int DecryptSymbolName(string srcname, StringBuilder realname);
+
+        [DllImport("kernel32", EntryPoint = "GetShortPathName", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern int GetShortPathName(string longPath, StringBuilder shortPath, int bufSize);
+
+        public static string GetDecryptSymbolName(string src)
+        {
+            //"?FindEdge@IPCV@@YAXVMat@cv@@V?$Rect_@H@3@HH_NW4SEARCHDIRECTION@@AAUEdgeFindResult@@@Z"
+
+            var sb = new StringBuilder();
+
+            DecryptSymbolName(src, sb);
+
+            return sb.ToString();
+        }
+    }
 
 
 }
