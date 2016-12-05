@@ -42,7 +42,15 @@ namespace DumpBinInvoke
             GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA", true);
             GetOutput(mReLocations, mTextBoxPath.Text, " /RELOCATIONS");
 
+            if (mTextBoxPath.Text.ToLower().EndsWith(".exe"))
+            {
+                MonitorProcess();
+
+                mTabControl.SelectedIndex = mTabControl.Items.Count - 1;
+            }
+
         }
+
 
         private void mButtonOpen_Click(object sender, RoutedEventArgs e)
         {
@@ -58,6 +66,7 @@ namespace DumpBinInvoke
             }
 
         }
+
 
         public List<T> GetChildObjects<T>(DependencyObject obj, Action<T> actor = null) where T : FrameworkElement
         {
@@ -81,6 +90,38 @@ namespace DumpBinInvoke
 
 
             return childList;
+        }
+
+
+        public void MonitorProcess()
+        {
+            mExeOutput.Text = string.Empty;
+
+            ProcessStartInfo startInfo = new ProcessStartInfo(mTextBoxPath.Text)
+            {
+                WindowStyle = ProcessWindowStyle.Hidden,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+
+            Func<string> mGetTime = () =>
+            {
+                return DateTime.Now.ToString("[ yyyy-MM-dd HH::mm::ss::fff ] ");
+            };
+
+            Process process = Process.Start(startInfo);
+            process.OutputDataReceived += (o, e1) =>
+            {
+                mExeOutput.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    mExeOutput.Text += mGetTime() + e1.Data + Environment.NewLine;
+                    mExeOutput.SelectionStart = mExeOutput.Text.Length;
+                    mExeOutput.ScrollToEnd();
+                }), null);
+            };
+            process.BeginOutputReadLine();
+
         }
 
 
@@ -150,6 +191,18 @@ namespace DumpBinInvoke
         }
 
 
+        private void mTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (mTabControl.SelectedItem == mRawItem)
+            {
+                mRowData.Text = mRawContent;
+            }
+            else if (mTabControl.SelectedItem == mAsmItem)
+            {
+                mAsmHeader.Text = mAsmContent;
+            }
+        }
+
 
         private void Window_DragEnter(object sender, DragEventArgs e)
         {
@@ -165,15 +218,21 @@ namespace DumpBinInvoke
             }
         }
 
-        private void mTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+
+        private void Window_DragOver(object sender, DragEventArgs e)
         {
-            if (mTabControl.SelectedItem == mRawItem)
+            e.Effects = DragDropEffects.Copy;
+
+            e.Handled = true;
+        }
+
+
+        private void Window_Drag(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
-                mRowData.Text = mRawContent;
-            }
-            else if (mTabControl.SelectedItem == mAsmItem)
-            {
-                mAsmHeader.Text = mAsmContent;
+                // do whatever you want do with the dropped element
+                System.Array droppedThingie = e.Data.GetData(DataFormats.FileDrop) as System.Array;
             }
         }
 
