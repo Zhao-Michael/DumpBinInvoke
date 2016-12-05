@@ -26,7 +26,7 @@
 
         <Grid Grid.Row="1" Grid.ColumnSpan="10">
 
-            <TabControl Name="mTabControl" Margin="10" SelectionChanged="mTabControl_SelectionChanged"  >
+            <TabControl Name="mTabControl" Margin="10" >
                 <TabItem Header="头信息">
                     <TextBox Name="mHeaderBox" TextWrapping="Wrap" Margin="-3,-2,-3,-3"  VerticalScrollBarVisibility="Visible" />
                 </TabItem>

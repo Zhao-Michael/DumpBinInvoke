@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -24,10 +27,18 @@ namespace DumpBinInvoke
         public MainWindow()
         {
             InitializeComponent();
+
+            var temp = Environment.CommandLine.Split(new string[] { " " }, StringSplitOptions.None);
+
+            if (temp.Length > 1)
+            {
+                if (File.Exists(temp.Last()))
+                {
+                    mTextBoxPath.Text = temp.Last();
+                }
+            }
         }
 
-        public static string mAsmContent = string.Empty;
-        public static string mRawContent = string.Empty;
 
         private void mbuttonExec_Click(object sender, RoutedEventArgs e)
         {
@@ -35,11 +46,11 @@ namespace DumpBinInvoke
             if (mTextBoxPath.Text == string.Empty) return;
 
             GetOutput(mHeaderBox, mTextBoxPath.Text, " /HEADERS");
-            GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM", true);
+            GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM");
             GetOutput(mExports, mTextBoxPath.Text, " /EXPORTS");
             GetOutput(mDependents, mTextBoxPath.Text, " /DEPENDENTS");
             GetOutput(mImports, mTextBoxPath.Text, " /IMPORTS");
-            GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA", true);
+            GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA");
             GetOutput(mReLocations, mTextBoxPath.Text, " /RELOCATIONS");
 
             if (mTextBoxPath.Text.ToLower().EndsWith(".exe"))
@@ -48,6 +59,8 @@ namespace DumpBinInvoke
 
                 mTabControl.SelectedIndex = mTabControl.Items.Count - 1;
             }
+
+            Console.WriteLine(11);
 
         }
 
@@ -68,7 +81,150 @@ namespace DumpBinInvoke
         }
 
 
-        public List<T> GetChildObjects<T>(DependencyObject obj, Action<T> actor = null) where T : FrameworkElement
+        public void MonitorProcess()
+        {
+            mExeOutput.Text = string.Empty;
+
+            ProcessStartInfo startInfo = new ProcessStartInfo(mTextBoxPath.Text)
+            {
+                WindowStyle = ProcessWindowStyle.Normal,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+
+            Func<string> mGetTime = () =>
+            {
+                return DateTime.Now.ToString("[ yyyy-MM-dd HH::mm::ss::fff ] ");
+            };
+
+            Process process = null;
+
+            try
+            {
+                process = Process.Start(startInfo);
+            }
+            catch (Exception)
+            {
+                DllHandler.RunAsAdmin(mTextBoxPath.Text);
+
+                Hide();
+
+                Close();
+
+                return;
+            }
+
+            process.OutputDataReceived += (o, e1) =>
+            {
+                mExeOutput.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    mExeOutput.Text += mGetTime() + e1.Data + Environment.NewLine;
+                    mExeOutput.SelectionStart = mExeOutput.Text.Length;
+                    mExeOutput.ScrollToEnd();
+                }), null);
+            };
+            process.BeginOutputReadLine();
+
+        }
+
+
+        public void GetOutput(TextBox textbox, string dllpath, string arg)
+        {
+            textbox.Text = string.Empty;
+
+            Task.Run(() =>
+            {
+                ProcessStartInfo startInfo = new ProcessStartInfo("cmd.exe", "/c " + "dumpbin.exe " + DllHandler.GetShortName(dllpath) + arg + "&exit")
+                {
+                    WindowStyle = ProcessWindowStyle.Hidden,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+
+                Process process = Process.Start(startInfo);
+
+                string output = process.StandardOutput.ReadToEnd();
+
+                process.WaitForExit();
+                process.Close();
+
+                if (textbox == mImports)
+                {
+                    Regex regex = new Regex(@"\?(.*)[Zz]");
+
+                    var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                    {
+                        return DllHandler.GetDecryptSymbolName(m.Value);
+                    }));
+
+                    output = newSource;
+                }
+                else if (textbox == mExports)
+                {
+
+                    {
+                        Regex regex = new Regex(@"\?(.*)[Zz] ");
+
+                        //var tt = regex.Matches(output);
+
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                        {
+                            return DllHandler.GetDecryptSymbolName(m.Value.Trim());
+                        }));
+
+                        output = newSource;
+                    }
+
+                    {
+                        Regex regex = new Regex(@"\(\?(.*)[Zz]\)");
+
+                        //var tt = regex.Matches(output);
+
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                        {
+                            var t = m.Value.Substring(1, m.Value.Length - 2);
+
+                            return DllHandler.GetDecryptSymbolName(t);
+                        }));
+
+                        output = newSource;
+                    }
+
+                }
+
+                textbox.Dispatcher.BeginInvoke(new Action(() => textbox.AppendText(output)), null);
+            });
+
+        }
+
+
+
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.Copy;
+
+            e.Handled = true;
+        }
+
+
+        private void Window_Drag(object sender, DragEventArgs e)
+        {
+            try
+            {
+                mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
+
+            }
+            catch (Exception ex)
+            {
+                mTextBoxPath.Text = "";
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+
+        public static List<T> GetChildObjects<T>(DependencyObject obj, Action<T> actor = null) where T : FrameworkElement
         {
             DependencyObject child = null;
 
@@ -93,150 +249,6 @@ namespace DumpBinInvoke
         }
 
 
-        public void MonitorProcess()
-        {
-            mExeOutput.Text = string.Empty;
-
-            ProcessStartInfo startInfo = new ProcessStartInfo(mTextBoxPath.Text)
-            {
-                WindowStyle = ProcessWindowStyle.Hidden,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            };
-
-            Func<string> mGetTime = () =>
-            {
-                return DateTime.Now.ToString("[ yyyy-MM-dd HH::mm::ss::fff ] ");
-            };
-
-            Process process = Process.Start(startInfo);
-            process.OutputDataReceived += (o, e1) =>
-            {
-                mExeOutput.Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    mExeOutput.Text += mGetTime() + e1.Data + Environment.NewLine;
-                    mExeOutput.SelectionStart = mExeOutput.Text.Length;
-                    mExeOutput.ScrollToEnd();
-                }), null);
-            };
-            process.BeginOutputReadLine();
-
-        }
-
-
-        public void GetOutput(TextBox textbox, string dllpath, string arg, bool lenText = false)
-        {
-            textbox.Text = string.Empty;
-
-            ProcessStartInfo startInfo = new ProcessStartInfo("cmd.exe", "/c " + "dumpbin.exe " + GetShortName(dllpath) + arg)
-            {
-                WindowStyle = ProcessWindowStyle.Hidden,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            };
-
-            Process process = Process.Start(startInfo);
-
-            string temp = string.Empty;
-
-            if (lenText)
-            {
-                if (textbox == mAsmHeader)
-                {
-                    process.OutputDataReceived += (o, e) =>
-                    {
-                        temp = temp + e.Data + Environment.NewLine;
-
-                        textbox.Dispatcher.BeginInvoke(new Action(() => mAsmContent = temp), null);
-
-                    };
-                }
-                else if (textbox == mRowData)
-                {
-                    process.OutputDataReceived += (o, e) =>
-                    {
-                        temp = temp + e.Data + Environment.NewLine;
-
-                        textbox.Dispatcher.BeginInvoke(new Action(() => mRawContent = temp), null);
-
-                    };
-                }
-
-            }
-            else
-            {
-                process.OutputDataReceived += (o, e) =>
-                {
-                    temp = temp + e.Data + Environment.NewLine;
-
-                    textbox.Dispatcher.BeginInvoke(new Action(() => textbox.Text = temp), null);
-
-                };
-            }
-
-            process.BeginOutputReadLine();
-            process.Start();
-
-        }
-
-
-        public static string GetShortName(string sLongFileName)
-        {
-            var buffer = new StringBuilder(259);
-            int len = DllHandler.GetShortPathName(sLongFileName, buffer, buffer.Capacity);
-            if (len == 0) throw new System.ComponentModel.Win32Exception();
-            return buffer.ToString();
-        }
-
-
-        private void mTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (mTabControl.SelectedItem == mRawItem)
-            {
-                mRowData.Text = mRawContent;
-            }
-            else if (mTabControl.SelectedItem == mAsmItem)
-            {
-                mAsmHeader.Text = mAsmContent;
-            }
-        }
-
-
-        private void Window_DragEnter(object sender, DragEventArgs e)
-        {
-            try
-            {
-                mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
-
-            }
-            catch (Exception ex)
-            {
-                mTextBoxPath.Text = "";
-                MessageBox.Show(ex.Message);
-            }
-        }
-
-
-        private void Window_DragOver(object sender, DragEventArgs e)
-        {
-            e.Effects = DragDropEffects.Copy;
-
-            e.Handled = true;
-        }
-
-
-        private void Window_Drag(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                // do whatever you want do with the dropped element
-                System.Array droppedThingie = e.Data.GetData(DataFormats.FileDrop) as System.Array;
-            }
-        }
-
-
     }
 
     public class DllHandler
@@ -248,6 +260,18 @@ namespace DumpBinInvoke
         [DllImport("kernel32", EntryPoint = "GetShortPathName", CharSet = CharSet.Auto, SetLastError = true)]
         public static extern int GetShortPathName(string longPath, StringBuilder shortPath, int bufSize);
 
+        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+        static extern bool ShellExecuteEx(ref SHELLEXECUTEINFO lpExecInfo);
+
+        public static string GetShortName(string sLongFileName)
+        {
+            var buffer = new StringBuilder(259);
+            int len = DllHandler.GetShortPathName(sLongFileName, buffer, buffer.Capacity);
+            if (len == 0) throw new System.ComponentModel.Win32Exception();
+            return buffer.ToString();
+        }
+
+
         public static string GetDecryptSymbolName(string src)
         {
             //"?FindEdge@IPCV@@YAXVMat@cv@@V?$Rect_@H@3@HH_NW4SEARCHDIRECTION@@AAUEdgeFindResult@@@Z"
@@ -258,6 +282,90 @@ namespace DumpBinInvoke
 
             return sb.ToString();
         }
+
+        public static void RunAsAdmin(string arg)
+        {
+            SHELLEXECUTEINFO info = new DumpBinInvoke.DllHandler.SHELLEXECUTEINFO();
+            info.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(info);
+            info.lpVerb = "runas";
+            info.nShow = 1;
+            info.lpFile = System.Windows.Forms.Application.ExecutablePath;
+            info.lpParameters = File.Exists(arg) ? arg : "";
+
+            ShellExecuteEx(ref info);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SHELLEXECUTEINFO
+        {
+            public int cbSize;
+            public uint fMask;
+            public IntPtr hwnd;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public string lpVerb;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public string lpFile;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public string lpParameters;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public string lpDirectory;
+            public int nShow;
+            public IntPtr hInstApp;
+            public IntPtr lpIDList;
+            [MarshalAs(UnmanagedType.LPTStr)]
+            public string lpClass;
+            public IntPtr hkeyClass;
+            public uint dwHotKey;
+            public IntPtr hIcon;
+            public IntPtr hProcess;
+        }
+
+        public enum ShowCommands : int
+        {
+            SW_HIDE = 0,
+            SW_SHOWNORMAL = 1,
+            SW_NORMAL = 1,
+            SW_SHOWMINIMIZED = 2,
+            SW_SHOWMAXIMIZED = 3,
+            SW_MAXIMIZE = 3,
+            SW_SHOWNOACTIVATE = 4,
+            SW_SHOW = 5,
+            SW_MINIMIZE = 6,
+            SW_SHOWMINNOACTIVE = 7,
+            SW_SHOWNA = 8,
+            SW_RESTORE = 9,
+            SW_SHOWDEFAULT = 10,
+            SW_FORCEMINIMIZE = 11,
+            SW_MAX = 11
+        }
+
+        [Flags]
+        public enum ShellExecuteMaskFlags : uint
+        {
+            SEE_MASK_DEFAULT = 0x00000000,
+            SEE_MASK_CLASSNAME = 0x00000001,
+            SEE_MASK_CLASSKEY = 0x00000003,
+            SEE_MASK_IDLIST = 0x00000004,
+            SEE_MASK_INVOKEIDLIST = 0x0000000c,   // Note SEE_MASK_INVOKEIDLIST(0xC) implies SEE_MASK_IDLIST(0x04) 
+            SEE_MASK_HOTKEY = 0x00000020,
+            SEE_MASK_NOCLOSEPROCESS = 0x00000040,
+            SEE_MASK_CONNECTNETDRV = 0x00000080,
+            SEE_MASK_NOASYNC = 0x00000100,
+            SEE_MASK_FLAG_DDEWAIT = SEE_MASK_NOASYNC,
+            SEE_MASK_DOENVSUBST = 0x00000200,
+            SEE_MASK_FLAG_NO_UI = 0x00000400,
+            SEE_MASK_UNICODE = 0x00004000,
+            SEE_MASK_NO_CONSOLE = 0x00008000,
+            SEE_MASK_ASYNCOK = 0x00100000,
+            SEE_MASK_HMONITOR = 0x00200000,
+            SEE_MASK_NOZONECHECKS = 0x00800000,
+            SEE_MASK_NOQUERYCLASSSTORE = 0x01000000,
+            SEE_MASK_WAITFORINPUTIDLE = 0x02000000,
+            SEE_MASK_FLAG_LOG_USAGE = 0x04000000,
+        }
+
+
+
     }
 
 
