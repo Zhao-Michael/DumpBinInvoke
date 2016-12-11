@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:DumpBinInvoke"
         mc:Ignorable="d"
-        Title="DumpBin Invoker" Height="350" Width="525"  Icon="setting_128px.png" MinWidth="500" MinHeight="400"
+        Title="DumpBin Invoker" Height="409.076" Width="543.153"  Icon="setting_128px.png" MinWidth="500" MinHeight="400"
              AllowDrop="True" DragDrop.Drop="Window_Drag"  DragDrop.DragOver="Window_DragOver" >
     <Grid  >
         <Grid.ColumnDefinitions>
@@ -25,6 +25,7 @@
         <Button Name="mButtonExec" Content="执行" Grid.Column="2" Margin="10,0,10,0" Height="25" Width="60" Click="mbuttonExec_Click"  />
 
         <Grid Grid.Row="1" Grid.ColumnSpan="10">
+
 
             <TabControl Name="mTabControl" Margin="10" >
                 <TabItem Header="头信息">
@@ -52,6 +53,8 @@
                     <TextBox Name="mExeOutput" TextWrapping="Wrap" Margin="-3,-2,-3,-3" IsReadOnly="True" VerticalScrollBarVisibility="Visible"/>
                 </TabItem>
             </TabControl>
+
+            <CheckBox Name="checkbox" IsChecked="True"  Content="解析符号" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="10,13"/>
 
         </Grid>
 

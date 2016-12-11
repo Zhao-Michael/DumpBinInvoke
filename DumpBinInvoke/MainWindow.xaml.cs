@@ -131,6 +131,8 @@ namespace DumpBinInvoke
         {
             textbox.Text = string.Empty;
 
+            bool IsDecrptySymbol = (bool)checkbox.IsChecked;
+
             Task.Run(() =>
             {
                 ProcessStartInfo startInfo = new ProcessStartInfo("cmd.exe", "/c " + "dumpbin.exe " + DllHandler.GetShortName(dllpath) + arg + "&exit")
@@ -148,55 +150,80 @@ namespace DumpBinInvoke
                 process.WaitForExit();
                 process.Close();
 
-                if (textbox == mImports)
+                if (IsDecrptySymbol)
                 {
-                    Regex regex = new Regex(@"\?(.*)[Zz]");
-
-                    var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                    if (textbox == mImports)
                     {
-                        return DllHandler.GetDecryptSymbolName(m.Value);
-                    }));
-
-                    output = newSource;
-
-                }
-                else if (textbox == mExports)
-                {
-
-                    {
-                        Regex regex = new Regex(@"\?(.*)[Zz] ");
-
-                        var tt = regex.Matches(output);
-
-
-
-                        if (tt.Count > 0)
                         {
+                            Regex regex = new Regex(@"\?(.*)[Zz]");
+
                             var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
                             {
-                                return DllHandler.GetDecryptSymbolName(m.Value.Trim());
+                                var t = DllHandler.GetDecryptSymbolName(m.Value.Trim());
+
+                                return (t == m.Value.Trim()) ? ("  " + m.Value) : ("  解码函数：  " + t);
+                            }));
+
+                            output = newSource;
+                        }
+
+                        {
+                            Regex regex = new Regex(@"\?(.*)[A]");
+
+                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                            {
+                                var t = DllHandler.GetDecryptSymbolName(m.Value);
+
+                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码变量：  " + t);
                             }));
 
                             output = newSource;
                         }
 
                     }
-
+                    else if (textbox == mExports)
                     {
-                        Regex regex = new Regex(@"\(\?(.*)[Zz]\)");
 
-                        var tt = regex.Matches(output);
-
-                        if (tt.Count > 0)
                         {
+                            Regex regex = new Regex(@"\?(.*)[Zz]");
+
+                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                            {
+                                var t = DllHandler.GetDecryptSymbolName(m.Value.Trim());
+
+                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码函数：  " + t);
+                            }));
+
+                            output = newSource;
+
+                        }
+
+                        {
+                            Regex regex = new Regex(@"\(\?(.*)[Zz]\)");
+
                             var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
                             {
                                 var t = m.Value.Substring(1, m.Value.Length - 2);
 
-                                return DllHandler.GetDecryptSymbolName(t);
+                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码函数：  " + t);
                             }));
 
                             output = newSource;
+
+                        }
+
+                        {
+                            Regex regex = new Regex(@"\?(.*)[A]");
+
+                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                            {
+                                var t = DllHandler.GetDecryptSymbolName(m.Value);
+
+                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码变量：  " + t);
+                            }));
+
+                            output = newSource;
+
                         }
 
                     }
@@ -319,7 +346,7 @@ namespace DumpBinInvoke
 
             UnDecorateSymbolName(src, buffer, len, UnDecorateFlags.UNDNAME_COMPLETE);
 
-            return "  解码签名：  " + buffer.ToString();
+            return buffer.ToString();
         }
 
         public static void RunAsAdmin(string arg)
