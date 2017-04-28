@@ -55,7 +55,14 @@ namespace DumpBinInvoke
 
             if (mTextBoxPath.Text.ToLower().EndsWith(".exe"))
             {
-                MonitorProcess();
+                try
+                {
+                    MonitorProcess();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
 
                 mTabControl.SelectedIndex = mTabControl.Items.Count - 1;
             }
