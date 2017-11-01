@@ -12,5 +12,17 @@ namespace DumpBinInvoke
     /// </summary>
     public partial class App : Application
     {
+        public App()
+        {
+
+            System.Windows.Forms.Application.ThreadException += Application_ThreadException;
+
+        }
+
+        private void Application_ThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
+        {
+            MessageBox.Show(e.Exception.Message + Environment.NewLine + e.Exception.StackTrace);
+
+        }
     }
 }

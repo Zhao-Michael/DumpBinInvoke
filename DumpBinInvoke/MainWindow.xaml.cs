@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -26,6 +27,8 @@ namespace DumpBinInvoke
     {
         public MainWindow()
         {
+            Task.Factory.StartNew(CheckExeDll);
+
             InitializeComponent();
 
             var index = Environment.CommandLine.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
@@ -42,17 +45,6 @@ namespace DumpBinInvoke
 
         private void mbuttonExec_Click(object sender, RoutedEventArgs e)
         {
-
-            if (mTextBoxPath.Text == string.Empty) return;
-
-            GetOutput(mHeaderBox, mTextBoxPath.Text, " /HEADERS");
-            GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM");
-            GetOutput(mExports, mTextBoxPath.Text, " /EXPORTS");
-            GetOutput(mDependents, mTextBoxPath.Text, " /DEPENDENTS");
-            GetOutput(mImports, mTextBoxPath.Text, " /IMPORTS");
-            GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA");
-            GetOutput(mReLocations, mTextBoxPath.Text, " /RELOCATIONS");
-
             if (mTextBoxPath.Text.ToLower().EndsWith(".exe"))
             {
                 try
@@ -69,6 +61,26 @@ namespace DumpBinInvoke
 
         }
 
+        private void mbuttonParse_Click(object sender, RoutedEventArgs e)
+        {
+            mButtonParse.IsEnabled = false;
+
+            Task.Factory.StartNew(() =>
+            {
+                Thread.Sleep(1000);
+                Dispatcher.Invoke(new Action(() => mButtonParse.IsEnabled = true));
+            });
+
+            if (mTextBoxPath.Text == string.Empty) return;
+
+            GetOutput(mHeaderBox, mTextBoxPath.Text, " /HEADERS");
+            GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM");
+            GetOutput(mExports, mTextBoxPath.Text, " /EXPORTS");
+            GetOutput(mDependents, mTextBoxPath.Text, " /DEPENDENTS");
+            GetOutput(mImports, mTextBoxPath.Text, " /IMPORTS");
+            GetOutput(mRowData, mTextBoxPath.Text, " /RAWDATA");
+            GetOutput(mReLocations, mTextBoxPath.Text, " /RELOCATIONS");
+        }
 
         private void mButtonOpen_Click(object sender, RoutedEventArgs e)
         {
@@ -76,15 +88,19 @@ namespace DumpBinInvoke
             open.Multiselect = false;
             open.Title = "选择执行文件";
             open.CheckFileExists = true;
-            open.Filter = "所有文件|*.*|可执行文件|*.exe|静态链接库|*.lib|动态链接库|*.dll|中间目标文件|*.obj";
+            open.Filter = "PE 文件|*.exe;*.lib;*.dll;*.obj;|可执行文件|*.exe|静态链接库|*.lib|动态链接库|*.dll|中间目标文件|*.obj|所有文件|*.*";
+
 
             if (open.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 mTextBoxPath.Text = open.FileName;
+
+                mButtonExec.IsEnabled = mTextBoxPath.Text.Trim().ToLower().EndsWith(".exe");
+
+                mbuttonParse_Click(null, null);
             }
 
         }
-
 
         public void MonitorProcess()
         {
@@ -133,7 +149,6 @@ namespace DumpBinInvoke
 
         }
 
-
         public void GetOutput(TextBox textbox, string dllpath, string arg)
         {
             textbox.Text = string.Empty;
@@ -157,84 +172,116 @@ namespace DumpBinInvoke
                 process.WaitForExit();
                 process.Close();
 
-                if (IsDecrptySymbol)
+                if (textbox == mImports && IsDecrptySymbol)
                 {
-                    if (textbox == mImports)
+
                     {
+                        Regex regex = new Regex(@"\?(.*)[Zz]");
+
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
                         {
-                            Regex regex = new Regex(@"\?(.*)[Zz]");
+                            var t = DllHandler.GetDecryptSymbolName(m.Value.Trim());
 
-                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
-                            {
-                                var t = DllHandler.GetDecryptSymbolName(m.Value.Trim());
+                            return (t == m.Value.Trim()) ? ("  " + m.Value) : ("  解码函数：  " + t);
+                        }));
 
-                                return (t == m.Value.Trim()) ? ("  " + m.Value) : ("  解码函数：  " + t);
-                            }));
-
-                            output = newSource;
-                        }
-
-                        {
-                            Regex regex = new Regex(@"\?(.*)[A]");
-
-                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
-                            {
-                                var t = DllHandler.GetDecryptSymbolName(m.Value);
-
-                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码变量：  " + t);
-                            }));
-
-                            output = newSource;
-                        }
-
+                        output = newSource;
                     }
-                    else if (textbox == mExports)
+
                     {
+                        Regex regex = new Regex(@"\?(.*)[A]");
 
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
                         {
-                            Regex regex = new Regex(@"\?(.*)[Zz]");
+                            var t = DllHandler.GetDecryptSymbolName(m.Value);
 
-                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
-                            {
-                                var t = DllHandler.GetDecryptSymbolName(m.Value.Trim());
+                            return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码变量：  " + t);
+                        }));
 
-                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码函数：  " + t);
-                            }));
+                        output = newSource;
+                    }
 
-                            output = newSource;
+                }
+                else if (textbox == mExports)
+                {
 
-                        }
+                    {
+                        Regex regex = new Regex(@"\?(.*)[Zz]");
 
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
                         {
-                            Regex regex = new Regex(@"\(\?(.*)[Zz]\)");
+                            string t = m.Value.Trim();
 
-                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
-                            {
-                                var t = m.Value.Substring(1, m.Value.Length - 2);
+                            t = DllHandler.GetDecryptSymbolName(m.Value.Trim());
 
-                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码函数：  " + t);
-                            }));
+                            return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码函数：  " + t);
+                        }));
 
-                            output = newSource;
-
-                        }
-
-                        {
-                            Regex regex = new Regex(@"\?(.*)[A]");
-
-                            var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
-                            {
-                                var t = DllHandler.GetDecryptSymbolName(m.Value);
-
-                                return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码变量：  " + t);
-                            }));
-
-                            output = newSource;
-
-                        }
+                        output = newSource;
 
                     }
 
+                    {
+                        Regex regex = new Regex(@"\(\?(.*)[Zz]\)");
+
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                        {
+                            var t = m.Value.Substring(1, m.Value.Length - 2);
+
+                            return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码函数：  " + t);
+                        }));
+
+                        output = newSource;
+
+                    }
+
+                    {
+                        Regex regex = new Regex(@"\?(.*)[A]");
+
+                        var newSource = regex.Replace(output, new MatchEvaluator((Match m) =>
+                        {
+                            var t = DllHandler.GetDecryptSymbolName(m.Value);
+
+                            return (t == m.Value.Trim()) ? (" " + m.Value) : ("  解码变量：  " + t);
+                        }));
+
+                        output = newSource;
+
+                    }
+
+                }
+                else if (textbox == mHeaderBox)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (output.Contains("machine (x86)"))
+                            mBitVersion.Text = "32 位";
+                        else if (output.Contains("machine (x64)"))
+                            mBitVersion.Text = "64 位";
+                        else
+                            mBitVersion.Text = "未知";
+                    }));
+                }
+                else if (textbox == mDependents)
+                {
+                    var re = Regex.Match(output, "File Type:(.+)");
+
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (re.Success)
+                        {
+                            mFileType.Text = re.Groups[0].Value.Replace("File Type:", "").Trim();
+
+                            if (output.Contains("KERNEL32.dll"))
+                                mFileType.Text += "     Native";
+                            else if (output.Contains("mscoree.dll"))
+                                mFileType.Text += "     CLR";
+                        }
+                        else
+                        {
+                            mFileType.Text = "未知";
+                        }
+                    }));
                 }
 
                 textbox.Dispatcher.BeginInvoke(new Action(() => textbox.AppendText(output)), null);
@@ -243,8 +290,6 @@ namespace DumpBinInvoke
 
         }
 
-
-
         private void Window_DragOver(object sender, DragEventArgs e)
         {
             e.Effects = DragDropEffects.Copy;
@@ -252,13 +297,11 @@ namespace DumpBinInvoke
             e.Handled = true;
         }
 
-
         private void Window_Drag(object sender, DragEventArgs e)
         {
             try
             {
                 mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
-
             }
             catch (Exception ex)
             {
@@ -266,7 +309,6 @@ namespace DumpBinInvoke
                 MessageBox.Show(ex.Message);
             }
         }
-
 
         public static List<T> GetChildObjects<T>(DependencyObject obj, Action<T> actor = null) where T : FrameworkElement
         {
@@ -290,6 +332,20 @@ namespace DumpBinInvoke
 
 
             return childList;
+        }
+
+        public static void CheckExeDll()
+        {
+            if (!File.Exists("dumpbin.exe"))
+                File.WriteAllBytes("dumpbin.exe", Properties.Resources.dumpbin);
+            if (!File.Exists("link.exe"))
+                File.WriteAllBytes("link.exe", Properties.Resources.link);
+            if (!File.Exists("mspdb140.dll"))
+                File.WriteAllBytes("mspdb140.dll", Properties.Resources.mspdb140);
+            if (!File.Exists("mspdbcore.dll"))
+                File.WriteAllBytes("mspdbcore.dll", Properties.Resources.mspdbcore);
+            if (!File.Exists("msvcdis140.dll"))
+                File.WriteAllBytes("msvcdis140.dll", Properties.Resources.msvcdis140);
         }
 
 
@@ -347,9 +403,9 @@ namespace DumpBinInvoke
         {
             //src = "?FindEdge@IPCV@@YAXVMat@cv@@V?$Rect_@H@3@HH_NW4SEARCHDIRECTION@@AAUEdgeFindResult@@@Z";
 
-            var buffer = new StringBuilder(259);
+            var buffer = new StringBuilder(255);
 
-            var len = 1000;
+            var len = 255;
 
             UnDecorateSymbolName(src, buffer, len, UnDecorateFlags.UNDNAME_COMPLETE);
 

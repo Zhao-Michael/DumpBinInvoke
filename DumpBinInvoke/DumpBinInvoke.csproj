@@ -52,8 +52,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>
-    </ApplicationIcon>
+    <ApplicationIcon>exe.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -116,6 +115,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="dumpbin.exe" />
+    <Resource Include="exe.ico" />
     <Content Include="link.exe" />
     <Content Include="mspdb140.dll" />
     <Content Include="mspdbcore.dll" />
