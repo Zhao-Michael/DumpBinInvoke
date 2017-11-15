@@ -202,7 +202,7 @@ namespace DumpBinInvoke
                     }
 
                 }
-                else if (textbox == mExports)
+                else if (textbox == mExports && IsDecrptySymbol)
                 {
 
                     {
