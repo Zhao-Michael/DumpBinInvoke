@@ -40,6 +40,24 @@ namespace DumpBinInvoke
                     mTextBoxPath.Text = temp;
                 }
             }
+
+
+            Init_Drag(mTextBoxPath);
+            Init_Drag(mHeaderBox);
+            Init_Drag(mAsmHeader);
+            Init_Drag(mExports);
+            Init_Drag(mDependents);
+            Init_Drag(mImports);
+            Init_Drag(mRowData);
+            Init_Drag(mReLocations);
+
+        }
+
+        void Init_Drag(TextBox textBox)
+        {
+            textBox.PreviewDragOver += Window_DragOver;
+            textBox.PreviewDrop += Window_Drag;
+            textBox.PreviewDragEnter += Window_DragEnter;
         }
 
 
@@ -290,25 +308,7 @@ namespace DumpBinInvoke
 
         }
 
-        private void Window_DragOver(object sender, DragEventArgs e)
-        {
-            e.Effects = DragDropEffects.Copy;
 
-            e.Handled = true;
-        }
-
-        private void Window_Drag(object sender, DragEventArgs e)
-        {
-            try
-            {
-                mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
-            }
-            catch (Exception ex)
-            {
-                mTextBoxPath.Text = "";
-                MessageBox.Show(ex.Message);
-            }
-        }
 
         public static List<T> GetChildObjects<T>(DependencyObject obj, Action<T> actor = null) where T : FrameworkElement
         {
@@ -348,6 +348,32 @@ namespace DumpBinInvoke
                 File.WriteAllBytes("msvcdis140.dll", Properties.Resources.msvcdis140);
         }
 
+        private void Window_DragEnter(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.Copy;
+
+            e.Handled = true;
+        }
+
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            e.Effects = DragDropEffects.Copy;
+
+            e.Handled = true;
+        }
+
+        private void Window_Drag(object sender, DragEventArgs e)
+        {
+            try
+            {
+                mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
+            }
+            catch (Exception ex)
+            {
+                mTextBoxPath.Text = "";
+                MessageBox.Show(ex.Message);
+            }
+        }
 
     }
 
