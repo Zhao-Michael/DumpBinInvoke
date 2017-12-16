@@ -31,17 +31,6 @@ namespace DumpBinInvoke
 
             InitializeComponent();
 
-            var index = Environment.CommandLine.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
-            var temp = Environment.CommandLine.Remove(0, index + 5).Trim();
-            if (temp.Length > 1)
-            {
-                if (File.Exists(temp))
-                {
-                    mTextBoxPath.Text = temp;
-                }
-            }
-
-
             Init_Drag(mTextBoxPath);
             Init_Drag(mHeaderBox);
             Init_Drag(mAsmHeader);
@@ -51,7 +40,30 @@ namespace DumpBinInvoke
             Init_Drag(mRowData);
             Init_Drag(mReLocations);
 
+            Task.Factory.StartNew(HandleCmdLine);
         }
+
+        void HandleCmdLine()
+        {
+            Thread.Sleep(500);
+
+            var bs = Environment.GetCommandLineArgs();
+
+            if (bs.Length > 1)
+            {
+                if (File.Exists(bs[1]))
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        mTextBoxPath.Text = bs[1];
+
+                        mbuttonParse_Click(null, null);
+                    }));
+                }
+            }
+
+        }
+
 
         void Init_Drag(TextBox textBox)
         {
