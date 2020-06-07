@@ -181,7 +181,7 @@ namespace DumpBinInvoke
 
         public void GetOutput(TextBox textbox, string dllpath, string arg)
         {
-            textbox.Text = string.Empty;
+            textbox.Clear();
 
             bool IsDecrptySymbol = (bool)checkbox.IsChecked;
 
@@ -313,6 +313,12 @@ namespace DumpBinInvoke
                         }
                     }));
                 }
+                int cnt = output.Length;
+                if (cnt > 1024 * 1024)
+                {
+                    output = output.Substring(0, 1024 * 1024);
+                    GC.Collect();
+                }
 
                 textbox.Dispatcher.BeginInvoke(new Action(() => textbox.AppendText(output)), null);
 
@@ -394,10 +400,10 @@ namespace DumpBinInvoke
 
         [DllImport("dbghelp.dll", SetLastError = true, PreserveSig = true)]
         static extern int UnDecorateSymbolName(
-                [In] [MarshalAs(UnmanagedType.LPStr)] string DecoratedName,
+                [In][MarshalAs(UnmanagedType.LPStr)] string DecoratedName,
                 [Out] StringBuilder UnDecoratedName,
-                [In] [MarshalAs(UnmanagedType.U4)] int UndecoratedLength,
-                [In] [MarshalAs(UnmanagedType.U4)] UnDecorateFlags Flags);
+                [In][MarshalAs(UnmanagedType.U4)] int UndecoratedLength,
+                [In][MarshalAs(UnmanagedType.U4)] UnDecorateFlags Flags);
 
         [Flags]
         enum UnDecorateFlags
