@@ -19,6 +19,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using ScintillaNET_FindReplaceDialog;
+using ScintillaNET;
 
 namespace DumpBinInvoke
 {
@@ -27,6 +29,8 @@ namespace DumpBinInvoke
     /// </summary>
     public partial class MainWindow : Window
     {
+        private List<ScintillaWPF> ScintillaWPFs = new List<ScintillaWPF>();
+
         public MainWindow()
         {
             Task.Factory.StartNew(CheckExeDll);
@@ -58,7 +62,6 @@ namespace DumpBinInvoke
                     Dispatcher.BeginInvoke(new Action(() =>
                     {
                         mTextBoxPath.Text = bs[1];
-
                         mbuttonParse_Click(null, null);
                     }));
                 }
@@ -69,11 +72,28 @@ namespace DumpBinInvoke
 
         void Init_Drag(Control textBox)
         {
+            if (textBox is ScintillaWPF scintillaWPF)
+            {
+                ScintillaWPFs.Add(scintillaWPF);
+                scintillaWPF.Margins[0].Width = 42;
+                var findReplace = new FindReplace(scintillaWPF.Scintilla);
+                scintillaWPF.Tag = findReplace;
+                scintillaWPF.Scintilla.KeyDown += scintilla1_KeyDown;
+            }
+
             textBox.PreviewDragOver += Window_DragOver;
             textBox.PreviewDrop += Window_Drag;
             textBox.PreviewDragEnter += Window_DragEnter;
         }
 
+        private void scintilla1_KeyDown(object sender, System.Windows.Forms.KeyEventArgs e)
+        {
+            if (e.Control && e.KeyCode == System.Windows.Forms.Keys.F)
+            {
+                ShowSearchDlg();
+                e.SuppressKeyPress = true;
+            }
+        }
 
         private void mbuttonExec_Click(object sender, RoutedEventArgs e)
         {
@@ -97,13 +117,26 @@ namespace DumpBinInvoke
         {
             mButtonParse.IsEnabled = false;
 
+            var filePath = mTextBoxPath.Text;
+
+            ScintillaWPFs.ForEach(p =>
+            {
+                p.ReadOnly = false;
+                p.ClearAll();
+                p.ReadOnly = true;
+            });
+
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                MessageBox.Show("无法解析文件：" + filePath, "错误", MessageBoxButton.OK, MessageBoxImage.Stop);
+                return;
+            }
+
             Task.Factory.StartNew(() =>
             {
                 Thread.Sleep(1000);
                 Dispatcher.Invoke(new Action(() => mButtonParse.IsEnabled = true));
             });
-
-            if (mTextBoxPath.Text == string.Empty) return;
 
             GetOutput(mHeaderBox, mTextBoxPath.Text, " /HEADERS");
             GetOutput(mAsmHeader, mTextBoxPath.Text, " /DISASM");
@@ -382,14 +415,12 @@ namespace DumpBinInvoke
         private void Window_DragEnter(object sender, DragEventArgs e)
         {
             e.Effects = DragDropEffects.Copy;
-
             e.Handled = true;
         }
 
         private void Window_DragOver(object sender, DragEventArgs e)
         {
             e.Effects = DragDropEffects.Copy;
-
             e.Handled = true;
         }
 
@@ -397,13 +428,22 @@ namespace DumpBinInvoke
         {
             try
             {
-                mTextBoxPath.Text = ((System.Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
+                mTextBoxPath.Text = ((Array)e.Data.GetData(DataFormats.FileDrop)).GetValue(0).ToString();
+                mbuttonParse_Click(null, null);
             }
             catch (Exception ex)
             {
                 mTextBoxPath.Text = "";
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private void ShowSearchDlg()
+        {
+            var tabItem = mTabControl.Items[mTabControl.SelectedIndex] as TabItem;
+            var scintillaWPF = tabItem.Content as ScintillaWPF;
+            var findReplace = scintillaWPF.Tag as FindReplace;
+            findReplace.ShowFind();
         }
 
     }

@@ -58,6 +58,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ScintillaNET FindReplaceDialog, Version=1.4.0.17540, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Binary\ScintillaNET FindReplaceDialog.dll</HintPath>
+    </Reference>
     <Reference Include="ScintillaNET, Version=3.6.3.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\jacobslusser.ScintillaNET.3.6.3\lib\net40\ScintillaNET.dll</HintPath>
     </Reference>
@@ -125,6 +129,7 @@
     <Resource Include="setting_128px.png" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Binary\ScintillaNET FindReplaceDialog.dll" />
     <Content Include="dumpbin.exe" />
     <Resource Include="exe.ico" />
     <Content Include="link.exe" />

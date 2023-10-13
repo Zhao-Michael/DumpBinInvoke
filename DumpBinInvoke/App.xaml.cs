@@ -14,7 +14,7 @@ namespace DumpBinInvoke
     {
         public App()
         {
-
+            System.Windows.Forms.Application.EnableVisualStyles();
             System.Windows.Forms.Application.ThreadException += Application_ThreadException;
 
         }
