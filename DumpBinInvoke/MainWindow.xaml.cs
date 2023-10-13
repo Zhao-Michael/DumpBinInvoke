@@ -1,8 +1,10 @@
-﻿using System;
+﻿using ScintillaNET.WPF;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -65,7 +67,7 @@ namespace DumpBinInvoke
         }
 
 
-        void Init_Drag(TextBox textBox)
+        void Init_Drag(Control textBox)
         {
             textBox.PreviewDragOver += Window_DragOver;
             textBox.PreviewDrop += Window_Drag;
@@ -170,16 +172,18 @@ namespace DumpBinInvoke
             {
                 mExeOutput.Dispatcher.BeginInvoke(new Action(() =>
                 {
+                    mExeOutput.ReadOnly = false;
                     mExeOutput.Text += mGetTime() + e1.Data + Environment.NewLine;
                     mExeOutput.SelectionStart = mExeOutput.Text.Length;
-                    mExeOutput.ScrollToEnd();
+                    mExeOutput.LineScroll(mExeOutput.Lines.Count, 0);
+                    mExeOutput.ReadOnly = true;
                 }), null);
             };
             process.BeginOutputReadLine();
 
         }
 
-        public void GetOutput(TextBox textbox, string dllpath, string arg)
+        public void GetOutput(ScintillaWPF textbox, string dllpath, string arg)
         {
             textbox.Clear();
 
@@ -320,7 +324,12 @@ namespace DumpBinInvoke
                     GC.Collect();
                 }
 
-                textbox.Dispatcher.BeginInvoke(new Action(() => textbox.AppendText(output)), null);
+                textbox.Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    textbox.ReadOnly = false;
+                    textbox.AppendText(output);
+                    textbox.ReadOnly = true;
+                }), null);
 
             });
 
@@ -354,16 +363,20 @@ namespace DumpBinInvoke
 
         public static void CheckExeDll()
         {
-            if (!File.Exists("dumpbin.exe"))
-                File.WriteAllBytes("dumpbin.exe", Properties.Resources.dumpbin);
-            if (!File.Exists("link.exe"))
-                File.WriteAllBytes("link.exe", Properties.Resources.link);
-            if (!File.Exists("mspdb140.dll"))
-                File.WriteAllBytes("mspdb140.dll", Properties.Resources.mspdb140);
-            if (!File.Exists("mspdbcore.dll"))
-                File.WriteAllBytes("mspdbcore.dll", Properties.Resources.mspdbcore);
-            if (!File.Exists("msvcdis140.dll"))
-                File.WriteAllBytes("msvcdis140.dll", Properties.Resources.msvcdis140);
+            WriteRes("dumpbin.exe", Properties.Resources.dumpbin);
+            WriteRes("link.exe", Properties.Resources.link);
+            WriteRes("mspdb140.dll", Properties.Resources.mspdb140);
+            WriteRes("mspdbcore.dll", Properties.Resources.mspdbcore);
+            WriteRes("msvcdis140.dll", Properties.Resources.msvcdis140);
+        }
+
+        private static void WriteRes(string name, byte[] res)
+        {
+            var wf = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            var resPath = System.IO.Path.Combine(wf, name);
+
+            if (!File.Exists(resPath))
+                File.WriteAllBytes(resPath, res);
         }
 
         private void Window_DragEnter(object sender, DragEventArgs e)
