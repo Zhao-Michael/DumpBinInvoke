@@ -396,6 +396,8 @@ namespace DumpBinInvoke
 
         public static void CheckExeDll()
         {
+            var wf = System.IO.Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            Directory.SetCurrentDirectory(wf);
             WriteRes("dumpbin.exe", Properties.Resources.dumpbin);
             WriteRes("link.exe", Properties.Resources.link);
             WriteRes("mspdb140.dll", Properties.Resources.mspdb140);
